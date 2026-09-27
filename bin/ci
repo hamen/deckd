@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Local gate, run by .githooks/pre-push. The only CI this repo has.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+cargo fmt --check
+cargo clippy --release --all-targets -- -D warnings
+cargo test --release

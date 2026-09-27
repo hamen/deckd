@@ -1,0 +1,19 @@
+[package]
+name = "deckd"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+elgato-streamdeck = "0.13.1"
+hidapi = "2.6"
+image = { version = "0.25", default-features = false, features = ["png"] }
+libc = "0.2.189"
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.1.6"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

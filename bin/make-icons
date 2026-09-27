@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Regenerates icons/*.png (80x80, the Stream Deck Mini key size). Needs ImageMagick 7 (`magick`).
+# The daemon never renders text: these files are committed and only loaded at runtime.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mk() { # name label colour
+  magick -size 80x80 xc:black \
+    -fill "$3" -draw "roundrectangle 4,4 75,75 12,12" \
+    -fill white -font DejaVu-Sans-Bold -gravity north -pointsize 13 -annotate +0+12 "SHOT" \
+    -gravity center -pointsize "$4" -annotate +0+8 "$2" \
+    "icons/$1.png"
+}
+mk iphone "iPhone" "#3a3a3c" 17
+mk s9     "S9"     "#1428a0" 26
+mk 8a     "8a"     "#1e8e3e" 28
+mk fold   "Fold"   "#8e2de2" 22

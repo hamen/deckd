@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# One-time dev setup for a clone: enable the pre-push gate.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+git config core.hooksPath .githooks
+echo "pre-push gate enabled (.githooks/pre-push -> bin/ci)"
