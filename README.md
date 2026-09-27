@@ -12,7 +12,19 @@ shell command when you press it. That is the whole feature list, on purpose.
 | RAM, fresh start  | 275 MB                    | **3.5 MB**       |
 | RAM over time     | 2.9 GB (RAM + swap) after 44 days | no growth over 50 reloads and 200 commands (tested in the build) |
 | Ghost keys        | every press held 250 ms (my fork's filter) | faulty keys left unmapped, **no delay** |
+| Startup to keys drawn | — | **71-76 ms** (measured on the device) |
 | Runtime           | Flatpak, Python, GTK      | one 940 KB binary|
+
+## Requirements
+
+The brief for the rewrite had two hard numbers, and both are enforced by tests in the build:
+
+1. **Under 10 MB of RAM**, and no growth over time. `tests/rss.rs` runs the release binary through
+   50 config reloads and 200 commands: 3.5 MB, and it fails the build above 10 MB or on more
+   than 1 MB of growth.
+2. **Start in under 100 ms.** `tests/startup.rs` checks exec to config loaded (about 3 ms).
+   On the real deck, systemd start to all six keys drawn is 71-76 ms; the rest is the USB
+   transfer of the key images.
 
 ## Why
 
@@ -26,6 +38,13 @@ runtime. So deckd is the smallest thing that does the job:
 - **a memory test in the build**: the release binary must stay under 10 MB and must not grow over
   50 config reloads and 200 commands, or the build fails.
 
+## How it was made
+
+I did not write this in Rust myself — I do not know Rust. [Claude Code](https://claude.com/claude-code)
+wrote it, and other LLMs (Codex, GLM, Grok) reviewed the plan and every pull request through my
+[ship-feature](https://github.com/hamen/ship-feature) pipeline. My part was the brief, the
+two numbers above, the hardware facts, and pressing the buttons.
+
 ## Features
 
 - Icon + shell command per key. A key with no command does nothing.
@@ -38,40 +57,52 @@ runtime. So deckd is the smallest thing that does the job:
 
 ## The ghost key
 
-My Mini has worn membranes under the top-left and top-middle keys: they send a press by themselves
+**This is not a factory-fresh deck.** My Mini has worn membranes under the top-left and
+top-middle keys: they send a press by themselves
 when a neighbouring key moves. StreamController (in my fork) filtered this by holding **every**
 press for 250 ms. deckd takes the simpler route: those two keys have no command, so a ghost press
 cannot run anything, and the keys that work fire with no delay at all.
 
-To find a ghost on your own deck, run deckd with an empty config (nothing can run) and watch the
-raw key log:
-
-```sh
-: > /tmp/empty.toml
-DECKD_CONFIG=/tmp/empty.toml DECKD_DEBUG=1 deckd
-# deckd: t=1234ms key 2x0 DOWN   <- one line per key press / release
-```
-
-A key that goes DOWN without being touched is a ghost. Leave it unmapped.
+Your deck may have a different faulty key, or none. That is why the install below checks for
+ghosts **before** any key gets a command.
 
 ## Install
 
 Needs a Rust toolchain and `libudev-dev`. Your user needs access to the device's hidraw node
 (a udev rule with `TAG+="uaccess"` for `0fd9:0063`).
 
+> **Coming from StreamController?** Quit it first: only one program can drive the deck. It also
+> talks to the device through libusb and detaches the kernel HID driver, so after you quit it,
+> **unplug and replug the deck** once — otherwise there is no `/dev/hidraw` node for deckd.
+
+**1. Build and install** (this does not start anything):
+
 ```sh
 git clone https://github.com/hamen/deckd && cd deckd
-bin/install                        # builds, installs ~/.local/bin/deckd and the user unit
-$EDITOR ~/.config/deckd/config.toml
+bin/install                        # ~/.local/bin/deckd, the user unit, an example config
+```
+
+**2. Check for ghost keys — required.** Run deckd with an empty config, so no key can run
+anything, and press every key you plan to use, several times:
+
+```sh
+: > /tmp/empty.toml
+DECKD_CONFIG=/tmp/empty.toml DECKD_DEBUG=1 ~/.local/bin/deckd
+# deckd: t=1234ms key 2x0 DOWN   <- one line per key press / release; Ctrl-C when done
+```
+
+A key that goes DOWN without being touched is a ghost: **leave it without a command**. If a key
+you need is a ghost, deckd is not the right tool for that key (it has no delay filter).
+
+**3. Configure and start:**
+
+```sh
+$EDITOR ~/.config/deckd/config.toml  # the example has placeholder commands: replace them
 systemctl --user enable --now deckd
 journalctl --user -u deckd -f
 ```
 
 `bin/install` never overwrites your config or existing icons.
-
-> **Coming from StreamController?** Quit it first: only one program can drive the deck. It also
-> talks to the device through libusb and detaches the kernel HID driver, so after you quit it,
-> **unplug and replug the deck** once — otherwise there is no `/dev/hidraw` node for deckd.
 
 ## Config
 

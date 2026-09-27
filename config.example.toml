@@ -13,12 +13,12 @@ command = "$HOME/.local/bin/iphone-screenshot"
 
 [keys."0x1"]
 icon = "~/.config/deckd/icons/s9.png"
-command = "$HOME/.local/bin/phone-screenshot <adb-serial-1>"
+command = "$HOME/.local/bin/phone-screenshot ADB_SERIAL_1"
 
 [keys."1x1"]
 icon = "~/.config/deckd/icons/8a.png"
-command = "$HOME/.local/bin/phone-screenshot <adb-serial-2>"
+command = "$HOME/.local/bin/phone-screenshot ADB_SERIAL_2"
 
 [keys."2x1"]
 icon = "~/.config/deckd/icons/fold.png"
-command = "$HOME/.local/bin/phone-screenshot <adb-serial-3>"
+command = "$HOME/.local/bin/phone-screenshot ADB_SERIAL_3"

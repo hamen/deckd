@@ -171,13 +171,27 @@ mod tests {
         );
         assert_eq!(
             cfg.keys[5].command.as_deref(),
-            Some("$HOME/.local/bin/phone-screenshot <adb-serial-3>")
+            Some("$HOME/.local/bin/phone-screenshot ADB_SERIAL_3")
         );
         assert_eq!(
             cfg.keys[2].icon.as_deref(),
             Some(Path::new("/home/test/.config/deckd/icons/iphone.png"))
         );
         assert!(cfg.keys[0].command.is_none() && cfg.keys[1].command.is_none());
+    }
+
+    #[test]
+    fn example_commands_are_valid_shell() {
+        // bin/install copies the example as the live config, so every command must at least parse.
+        let cfg = p(include_str!("../config.example.toml")).unwrap();
+        for cmd in cfg.keys.iter().filter_map(|k| k.command.as_deref()) {
+            let ok = std::process::Command::new("sh")
+                .args(["-n", "-c", cmd])
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "not valid sh: {cmd}");
+        }
     }
 
     #[test]
