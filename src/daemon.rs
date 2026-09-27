@@ -181,7 +181,6 @@ impl<O: Opener> Daemon<O> {
                 Ok(()) => {
                     log("Stream Deck connected");
                     self.last_open_err = None;
-                    self.engine.reset();
                     self.deck = Some(deck);
                 }
                 Err(e) => self.drop_deck(now, &format!("draw failed: {e}")),
@@ -439,6 +438,29 @@ mod tests {
         assert!(e.d.connected());
         assert_eq!(e.shared.borrow().opens, 2);
         assert_eq!(e.shared.borrow().applies.len(), 2, "drawn on each open");
+    }
+
+    #[test]
+    fn key_held_across_a_reconnect_fires_again() {
+        let mut e = setup("held", "");
+        let cmd = marker(&e.dir);
+        std::fs::write(
+            e.dir.join("config.toml"),
+            format!("debounce_ms = 0\n[keys.\"0x0\"]\ncommand = \"{cmd}\"\n"),
+        )
+        .unwrap();
+        e.shared
+            .borrow_mut()
+            .reports
+            .extend([Ok(Some(st(&[0]))), Err("unplugged".into())]);
+        e.d.tick(e.t);
+        wait_children(&mut e.d);
+        e.d.tick(e.t);
+        e.shared.borrow_mut().reports.push_back(Ok(Some(st(&[0]))));
+        e.d.tick(e.t + RETRY);
+        e.d.tick(e.t + RETRY);
+        wait_children(&mut e.d);
+        assert_eq!(runs(&e.dir), 2, "the first report after a reconnect is a fresh press");
     }
 
     #[test]
