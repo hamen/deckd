@@ -11,6 +11,7 @@ install -m 755 target/release/deckd "$bin_dir/.deckd.new"
 mv -f "$bin_dir/.deckd.new" "$bin_dir/deckd"
 install -m 644 deckd.service "$unit_dir/deckd.service"
 [ -e "$cfg_dir/config.toml" ] || install -m 644 config.example.toml "$cfg_dir/config.toml"
+shopt -s nullglob
 for f in icons/*.png; do [ -e "$cfg_dir/$f" ] || install -m 644 "$f" "$cfg_dir/$f"; done
 systemctl --user daemon-reload
 if systemctl --user is-active --quiet deckd; then systemctl --user restart deckd; fi

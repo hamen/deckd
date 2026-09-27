@@ -224,7 +224,9 @@ impl<O: Opener> Daemon<O> {
 
 /// `sh -c <command>`: stdin from /dev/null, output to our stderr/stdout (the journal), and every
 /// inherited fd >= 3 closed, so a child can never hold the hidraw device open. If the fds cannot
-/// be closed, the spawn fails (and is logged) instead of running with a leak.
+/// be closed, the spawn fails (and is logged) instead of running with a leak. Because the fds are
+/// closed before exec, a failed exec (e.g. no `sh`) is not reported by `spawn`; it shows up when
+/// the child is reaped, as a non-zero exit.
 pub fn spawn(command: &str) -> std::io::Result<Child> {
     let mut cmd = Command::new("sh");
     cmd.arg("-c").arg(command).stdin(Stdio::null());
@@ -395,6 +397,28 @@ mod tests {
         }
         wait_children(&mut e.d);
         assert_eq!(runs(&e.dir), 1, "only the real press of 0x1");
+    }
+
+    #[test]
+    fn same_key_bounce_inside_window_spawns_once() {
+        let mut e = setup("bounce", "");
+        let cmd = marker(&e.dir);
+        std::fs::write(
+            e.dir.join("config.toml"),
+            format!("debounce_ms = 10000\n[keys.\"0x0\"]\ncommand = \"{cmd}\"\n"),
+        )
+        .unwrap();
+        e.shared
+            .borrow_mut()
+            .reports
+            .extend([Ok(Some(st(&[0]))), Ok(Some(st(&[])))]);
+        e.d.tick(e.t);
+        e.d.tick(e.t);
+        wait_children(&mut e.d); // not busy any more: only the debounce can drop the next press
+        e.shared.borrow_mut().reports.push_back(Ok(Some(st(&[0]))));
+        e.d.tick(e.t);
+        wait_children(&mut e.d);
+        assert_eq!(runs(&e.dir), 1);
     }
 
     #[test]

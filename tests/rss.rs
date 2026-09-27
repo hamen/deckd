@@ -59,8 +59,11 @@ fn rss_stays_under_10mb_and_flat() {
     let first = rss_kb(pid);
 
     // Each rewrite changes the size, so each one must be a real reload with 4 icon decodes.
+    let tmp = dir.join("config.toml.tmp");
     for i in 0..RELOADS {
-        std::fs::write(&cfg, config(&icons, i % 2 == 0) + &"#".repeat(i + 1)).unwrap();
+        // temp file + rename: the daemon never sees a truncated or half-written config
+        std::fs::write(&tmp, config(&icons, i % 2 == 0) + &"#".repeat(i + 1)).unwrap();
+        std::fs::rename(&tmp, &cfg).unwrap();
         std::thread::sleep(Duration::from_millis(300));
     }
     std::thread::sleep(Duration::from_secs(1));

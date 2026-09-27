@@ -11,7 +11,8 @@ pub enum Event {
     Fire(usize),
     /// DOWN on a key with no command (this is where the ghost key ends up).
     Unmapped(usize),
-    /// Same key pressed again within its debounce window.
+    /// Same key pressed again within its debounce window. Every DOWN, even a dropped one, restarts
+    /// the window, so a bouncing membrane stays quiet until it settles.
     Debounced(usize),
     /// The key's previous command is still running.
     Busy(usize),
