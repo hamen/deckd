@@ -124,6 +124,22 @@ mod tests {
     }
 
     #[test]
+    fn per_key_debounce_override_wins() {
+        let c = crate::config::parse(
+            "debounce_ms = 50\n[keys.\"2x0\"]\ncommand = \"true\"\ndebounce_ms = 400\n[keys.\"0x1\"]\ncommand = \"true\"\n",
+            Path::new("/h"),
+        )
+        .unwrap();
+        let (t0, mut e) = (Instant::now(), Engine::default());
+        for (k, expect_fire) in [(2, false), (3, true)] {
+            e.on_report(&st(&[k]), t0, &c, &IDLE);
+            e.on_report(&st(&[]), t0 + Duration::from_millis(10), &c, &IDLE);
+            let evs = e.on_report(&st(&[k]), t0 + Duration::from_millis(200), &c, &IDLE);
+            assert_eq!(evs == vec![Event::Fire(k)], expect_fire, "key {k}: {evs:?}");
+        }
+    }
+
+    #[test]
     fn windows_are_per_key() {
         let (c, t0, mut e) = (cfg(), Instant::now(), Engine::default());
         e.on_report(&st(&[2]), t0, &c, &IDLE);

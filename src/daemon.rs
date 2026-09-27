@@ -28,6 +28,8 @@ pub struct Daemon<O: Opener> {
     next_open: Instant,
     last_open_err: Option<String>,
     engine: Engine,
+    started: Instant,
+    last_raw: Vec<bool>,
     children: [Option<Child>; KEYS],
     /// Test hook (DECKD_TEST_SPAWN): after each good config load, spawn and reap `true` this many
     /// times through the real spawn path, so the RSS test exercises spawning without a device.
@@ -51,6 +53,8 @@ impl<O: Opener> Daemon<O> {
             next_open: now,
             last_open_err: None,
             engine: Engine::default(),
+            started: now,
+            last_raw: Vec::new(),
             children: Default::default(),
             test_spawn: 0,
         }
@@ -72,10 +76,7 @@ impl<O: Opener> Daemon<O> {
         match deck.read(TICK) {
             Ok(Some(states)) => {
                 if self.debug {
-                    log(&format!(
-                        "raw {:?}",
-                        states.iter().map(|&b| b as u8).collect::<Vec<_>>()
-                    ));
+                    self.log_transitions(&states);
                 }
                 let running = self.running();
                 for ev in self
@@ -108,6 +109,18 @@ impl<O: Opener> Daemon<O> {
             Event::Unmapped(i) if self.debug => log(&format!("key {i}: unmapped DOWN (ghost?)")),
             _ => {}
         }
+    }
+
+    /// DECKD_DEBUG: one line per key DOWN/UP, with milliseconds since start, to spot the ghost.
+    fn log_transitions(&mut self, states: &[bool]) {
+        let ms = self.started.elapsed().as_millis();
+        for (i, &down) in states.iter().enumerate() {
+            if self.last_raw.get(i).copied().unwrap_or(false) != down {
+                let (c, r) = (i % config::COLS, i / config::COLS);
+                log(&format!("t={ms}ms key {c}x{r} {}", if down { "DOWN" } else { "UP" }));
+            }
+        }
+        self.last_raw = states.to_vec();
     }
 
     fn running(&self) -> [bool; KEYS] {
@@ -199,6 +212,7 @@ impl<O: Opener> Daemon<O> {
         log(why);
         self.deck = None;
         self.engine.reset();
+        self.last_raw.clear();
         self.next_open = now + RETRY;
     }
 
@@ -209,14 +223,18 @@ impl<O: Opener> Daemon<O> {
 }
 
 /// `sh -c <command>`: stdin from /dev/null, output to our stderr/stdout (the journal), and every
-/// inherited fd >= 3 closed, so a child can never hold the hidraw device open.
+/// inherited fd >= 3 closed, so a child can never hold the hidraw device open. If the fds cannot
+/// be closed, the spawn fails (and is logged) instead of running with a leak.
 pub fn spawn(command: &str) -> std::io::Result<Child> {
     let mut cmd = Command::new("sh");
     cmd.arg("-c").arg(command).stdin(Stdio::null());
     // SAFETY: close_range is async-signal-safe; nothing else runs between fork and exec.
     unsafe {
         cmd.pre_exec(|| {
-            libc::syscall(libc::SYS_close_range, 3u32, u32::MAX, 0u32);
+            if libc::syscall(libc::SYS_close_range, 3u32, u32::MAX, 0u32) != 0 {
+                // No close_range (kernel < 5.9): refuse to run rather than leak the hidraw fd.
+                return Err(std::io::Error::last_os_error());
+            }
             Ok(())
         });
     }

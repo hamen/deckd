@@ -1,6 +1,7 @@
 //! Memory guard: the release binary must stay under 10 MB RSS, and must not grow while it
 //! reloads configs (decoding icons each time) and spawns/reaps commands.
 //! Runs in probe-only mode, so it never touches a Stream Deck that is plugged in.
+#![cfg(target_os = "linux")]
 
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -8,6 +9,8 @@ use std::time::Duration;
 
 const LIMIT_KB: u64 = 10 * 1024;
 const MAX_GROWTH_KB: u64 = 1024;
+const RELOADS: usize = 50;
+const SPAWNS_PER_RELOAD: usize = 4; // 50 x 4 = 200 commands
 
 fn rss_kb(pid: u32) -> u64 {
     let status = std::fs::read_to_string(format!("/proc/{pid}/status")).expect("process alive");
@@ -39,32 +42,35 @@ fn rss_stays_under_10mb_and_flat() {
     let dir = std::env::temp_dir().join(format!("deckd-rss-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let cfg = dir.join("config.toml");
+    let log = dir.join("stderr.log");
     std::fs::write(&cfg, config(&icons, false)).unwrap();
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_deckd"))
         .env("DECKD_CONFIG", &cfg)
         .env("DECKD_PROBE_ONLY", "1")
-        .env("DECKD_TEST_SPAWN", "10")
+        .env("DECKD_TEST_SPAWN", SPAWNS_PER_RELOAD.to_string())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(std::fs::File::create(&log).unwrap())
         .spawn()
         .unwrap();
     let pid = child.id();
 
-    std::thread::sleep(Duration::from_secs(2));
+    std::thread::sleep(Duration::from_secs(5));
     let first = rss_kb(pid);
 
-    // 20 reloads x 10 spawns = 200 spawned commands, and 20 icon decode rounds.
-    for i in 0..20 {
-        std::fs::write(&cfg, config(&icons, i % 2 == 0) + &"#".repeat(i)).unwrap();
-        std::thread::sleep(Duration::from_millis(400));
+    // Each rewrite changes the size, so each one must be a real reload with 4 icon decodes.
+    for i in 0..RELOADS {
+        std::fs::write(&cfg, config(&icons, i % 2 == 0) + &"#".repeat(i + 1)).unwrap();
+        std::thread::sleep(Duration::from_millis(300));
     }
     std::thread::sleep(Duration::from_secs(1));
     let last = rss_kb(pid);
 
     let _ = child.kill();
     let _ = child.wait();
-    eprintln!("VmRSS first={first} kB last={last} kB");
+    let loads = std::fs::read_to_string(&log).unwrap().matches("config loaded").count();
+    eprintln!("VmRSS first={first} kB last={last} kB, config loads={loads}");
+    assert_eq!(loads, RELOADS + 1, "every rewrite must have been loaded");
     assert!(first < LIMIT_KB, "RSS {first} kB at start, limit {LIMIT_KB} kB");
     assert!(last < LIMIT_KB, "RSS {last} kB after reloads, limit {LIMIT_KB} kB");
     assert!(last <= first + MAX_GROWTH_KB, "RSS grew from {first} to {last} kB");
