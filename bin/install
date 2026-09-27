@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Builds deckd and installs it as a systemd user service. Never overwrites an existing config or
+# existing icons. Does not touch git config (see bin/setup-dev) and does not enable the service.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+cargo build --release
+bin_dir="$HOME/.local/bin"; cfg_dir="$HOME/.config/deckd"; unit_dir="$HOME/.config/systemd/user"
+mkdir -p "$bin_dir" "$cfg_dir/icons" "$unit_dir"
+# temp file + rename: works while the old binary is running (no ETXTBSY)
+install -m 755 target/release/deckd "$bin_dir/.deckd.new"
+mv -f "$bin_dir/.deckd.new" "$bin_dir/deckd"
+install -m 644 deckd.service "$unit_dir/deckd.service"
+[ -e "$cfg_dir/config.toml" ] || install -m 644 config.example.toml "$cfg_dir/config.toml"
+shopt -s nullglob
+for f in icons/*.png; do [ -e "$cfg_dir/$f" ] || install -m 644 "$f" "$cfg_dir/$f"; done
+systemctl --user daemon-reload
+if systemctl --user is-active --quiet deckd; then systemctl --user restart deckd; fi
+echo "installed: $bin_dir/deckd, $unit_dir/deckd.service, config in $cfg_dir"
+echo "enable with: systemctl --user enable --now deckd"

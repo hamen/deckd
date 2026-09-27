@@ -1,0 +1,17 @@
+[Unit]
+Description=deckd - Stream Deck Mini daemon
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/deckd
+Restart=on-failure
+RestartSec=5
+# Let a running screenshot finish when the service restarts.
+KillMode=process
+# The key commands need X (xclip) and a normal PATH; set explicitly, not inherited.
+Environment=DISPLAY=:0.0
+Environment=XAUTHORITY=%h/.Xauthority
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
