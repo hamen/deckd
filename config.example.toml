@@ -1,23 +1,24 @@
 # deckd config: ~/.config/deckd/config.toml (reloaded automatically on save).
 # Keys are "<col>x<row>" on the Stream Deck Mini: 0x0 1x0 2x0 on top, 0x1 1x1 2x1 below.
-# A key with no command does nothing. Keep the ghost key (see README) unmapped.
+# A key with no command does nothing. Keep a faulty (ghost) key unmapped — see README.
 # `~` is expanded in `icon` only; `command` runs through `sh -c` as written.
 
 brightness = 75      # 0-100
 debounce_ms = 150    # same-key presses closer than this are dropped (per-key override allowed)
 
+# Example: four keys that grab a phone screenshot into the clipboard.
 [keys."2x0"]
 icon = "~/.config/deckd/icons/iphone.png"
-command = "/home/ivan/.local/bin/iphone-screenshot"
+command = "$HOME/.local/bin/iphone-screenshot"
 
 [keys."0x1"]
 icon = "~/.config/deckd/icons/s9.png"
-command = "/home/ivan/.local/bin/phone-screenshot 1c5b91182c027ece"
+command = "$HOME/.local/bin/phone-screenshot <adb-serial-1>"
 
 [keys."1x1"]
 icon = "~/.config/deckd/icons/8a.png"
-command = "/home/ivan/.local/bin/phone-screenshot 3C231JEKB44234"
+command = "$HOME/.local/bin/phone-screenshot <adb-serial-2>"
 
 [keys."2x1"]
 icon = "~/.config/deckd/icons/fold.png"
-command = "/home/ivan/.local/bin/phone-screenshot 35191FDHS0003Q"
+command = "$HOME/.local/bin/phone-screenshot <adb-serial-3>"

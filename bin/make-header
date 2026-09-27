@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Regenerates docs/header.png (1280x640, also usable as the GitHub social preview) from
+# docs/header.html with headless Chrome. Fonts: JetBrains Mono (falls back to Fira Code).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+chrome="$(command -v google-chrome || command -v chromium)"
+"$chrome" --headless=new --disable-gpu --hide-scrollbars --allow-file-access-from-files \
+  --window-size=1280,640 --screenshot="$PWD/docs/header.png" "file://$PWD/docs/header.html" >/dev/null 2>&1
+echo "wrote docs/header.png"

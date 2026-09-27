@@ -167,11 +167,11 @@ mod tests {
         assert_eq!(cfg.brightness, 75);
         assert_eq!(
             cfg.keys[2].command.as_deref(),
-            Some("/home/ivan/.local/bin/iphone-screenshot")
+            Some("$HOME/.local/bin/iphone-screenshot")
         );
         assert_eq!(
             cfg.keys[5].command.as_deref(),
-            Some("/home/ivan/.local/bin/phone-screenshot 35191FDHS0003Q")
+            Some("$HOME/.local/bin/phone-screenshot <adb-serial-3>")
         );
         assert_eq!(
             cfg.keys[2].icon.as_deref(),

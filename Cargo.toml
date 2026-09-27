@@ -1,6 +1,9 @@
 [package]
 name = "deckd"
 version = "0.1.0"
+license = "MIT"
+description = "A tiny daemon for the Elgato Stream Deck Mini"
+repository = "https://github.com/hamen/deckd"
 edition = "2024"
 
 [dependencies]
